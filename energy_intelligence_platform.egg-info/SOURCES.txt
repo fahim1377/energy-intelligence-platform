@@ -1,0 +1,10 @@
+README.md
+pyproject.toml
+energy_intelligence_platform.egg-info/PKG-INFO
+energy_intelligence_platform.egg-info/SOURCES.txt
+energy_intelligence_platform.egg-info/dependency_links.txt
+energy_intelligence_platform.egg-info/requires.txt
+energy_intelligence_platform.egg-info/top_level.txt
+ingestion/__init__.py
+ingestion/energy_charts_prices.py
+tests/test_energy_charts_prices.py

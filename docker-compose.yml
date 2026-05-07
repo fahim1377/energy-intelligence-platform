@@ -4,7 +4,7 @@ services:
     container_name: energy_platform_postgres
     environment:
       POSTGRES_DB: energy
-      POSTGRES_USER: energy_user
+      POSTGRES_USER: git
       POSTGRES_PASSWORD: energy_password
     ports:
       - "5432:5432"
@@ -17,6 +17,14 @@ services:
       timeout: 5s
       retries: 5
 
+  adminer:
+    image: adminer:4
+    container_name: energy_platform_adminer
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
 volumes:
   postgres_data:
-
