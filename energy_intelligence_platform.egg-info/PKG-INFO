@@ -128,13 +128,23 @@ python3 -m ingestion.energy_charts_prices --start 2026-01-01 --end 2026-01-31
 The job writes into `raw.energy_prices` and uses an upsert on `(source, country_code, timestamp_utc)`,
 so repeated runs update existing rows instead of creating duplicates.
 
+## Dashboard
+
+Start the first Streamlit dashboard:
+
+```bash
+streamlit run dashboard/app.py
+```
+
+The dashboard reads from `raw.energy_prices` using `DATABASE_URL` from your `.env` file.
+
 ## MVP Roadmap
 
 - [x] Set up project structure
 - [x] Run PostgreSQL with Docker Compose
 - [x] Create initial warehouse schema
 - [x] Ingest first electricity market dataset
-- Build first Streamlit dashboard
+- [x] Build first Streamlit dashboard
 - Add FastAPI endpoints
 - Add forecasting model
 - Deploy dashboard and API

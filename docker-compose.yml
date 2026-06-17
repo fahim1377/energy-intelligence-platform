@@ -4,7 +4,7 @@ services:
     container_name: energy_platform_postgres
     environment:
       POSTGRES_DB: energy
-      POSTGRES_USER: git
+      POSTGRES_USER: energy_user
       POSTGRES_PASSWORD: energy_password
     ports:
       - "5432:5432"
