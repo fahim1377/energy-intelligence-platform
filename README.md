@@ -131,6 +131,12 @@ uvicorn api.main:app --reload
 Check the service health at `http://127.0.0.1:8000/health`. Interactive API documentation is
 available at `http://127.0.0.1:8000/docs`.
 
+Query stored electricity prices by country and an optional inclusive date range:
+
+```bash
+curl "http://127.0.0.1:8000/prices?country_code=DE&start=2026-01-01&end=2026-01-31"
+```
+
 ## MVP Roadmap
 
 - [x] Set up project structure
