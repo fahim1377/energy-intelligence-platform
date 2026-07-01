@@ -120,6 +120,17 @@ streamlit run dashboard/app.py
 
 The dashboard reads from `raw.energy_prices` using `DATABASE_URL` from your `.env` file.
 
+## API
+
+Start the FastAPI development server:
+
+```bash
+uvicorn api.main:app --reload
+```
+
+Check the service health at `http://127.0.0.1:8000/health`. Interactive API documentation is
+available at `http://127.0.0.1:8000/docs`.
+
 ## MVP Roadmap
 
 - [x] Set up project structure
@@ -127,6 +138,6 @@ The dashboard reads from `raw.energy_prices` using `DATABASE_URL` from your `.en
 - [x] Create initial warehouse schema
 - [x] Ingest first electricity market dataset
 - [x] Build first Streamlit dashboard
-- Add FastAPI endpoints
+- [x] Add FastAPI health endpoint
 - Add forecasting model
 - Deploy dashboard and API
