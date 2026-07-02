@@ -46,6 +46,7 @@ Analytics Tables
 - FastAPI
 - Streamlit
 - Pandas
+- Scikit-learn
 - Pytest
 
 ## Project Structure
@@ -137,6 +138,19 @@ Query stored electricity prices by country and an optional inclusive date range:
 curl "http://127.0.0.1:8000/prices?country_code=DE&start=2026-01-01&end=2026-01-31"
 ```
 
+## Price Forecasting
+
+Train the hourly baseline model using the stored German electricity prices:
+
+```bash
+python3 -m ml.train_price_forecast --country-code DE
+```
+
+The command uses a chronological 80/20 train/test split, reports MAE and RMSE for both the model
+and a same-hour-yesterday baseline, and saves the trained artifact under
+`models/electricity_price_forecast.joblib`. At least 48 usable training hours and 24 test hours are
+required after creating lag features; several months of continuous data are recommended.
+
 ## MVP Roadmap
 
 - [x] Set up project structure
@@ -145,5 +159,5 @@ curl "http://127.0.0.1:8000/prices?country_code=DE&start=2026-01-01&end=2026-01-
 - [x] Ingest first electricity market dataset
 - [x] Build first Streamlit dashboard
 - [x] Add FastAPI health endpoint
-- Add forecasting model
+- [x] Add forecasting model
 - Deploy dashboard and API
