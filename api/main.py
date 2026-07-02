@@ -115,9 +115,12 @@ def list_prices(
 
 @app.get("/forecast", response_model=ForecastResponse, tags=["forecast"])
 def get_price_forecast(
+    connection: Annotated[
+        psycopg.Connection[Any],
+        Depends(get_database_connection),
+    ],
     country_code: Annotated[str, Query(min_length=2, max_length=10)] = "DE",
     hours: Annotated[int, Query(ge=1, le=168)] = 24,
-    connection: psycopg.Connection[Any] = Depends(get_database_connection),
     artifact: dict[str, Any] = Depends(get_forecast_artifact),
 ) -> ForecastResponse:
     normalized_country_code = country_code.upper()

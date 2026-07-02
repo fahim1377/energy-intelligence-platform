@@ -2,11 +2,18 @@ from __future__ import annotations
 
 import os
 from datetime import date
+from pathlib import Path
+from typing import Any
 
+import joblib
 import pandas as pd
 import psycopg
 import streamlit as st
 from dotenv import load_dotenv
+
+from ml.features import TARGET_COLUMN, prepare_hourly_prices
+from ml.predict import forecast_prices
+from ml.train_price_forecast import DEFAULT_MODEL_PATH
 
 
 load_dotenv()
@@ -38,10 +45,60 @@ def load_energy_prices(database_url: str) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=columns)
 
 
-def filter_prices(df: pd.DataFrame, selected_country: str, start_date: date, end_date: date) -> pd.DataFrame:
+@st.cache_resource
+def load_forecast_artifact(model_path: str) -> dict[str, Any]:
+    artifact = joblib.load(model_path)
+    required_keys = {"model", "feature_columns", "country_code", "trained_at_utc", "metrics"}
+    if not isinstance(artifact, dict) or not required_keys.issubset(artifact):
+        raise ValueError("Forecast model artifact is invalid")
+    return artifact
+
+
+def filter_prices(
+    df: pd.DataFrame, selected_country: str, start_date: date, end_date: date
+) -> pd.DataFrame:
     filtered = df[df["country_code"] == selected_country].copy()
     filtered["date"] = filtered["timestamp_utc"].dt.date
     return filtered[(filtered["date"] >= start_date) & (filtered["date"] <= end_date)]
+
+
+def build_forecast_view(
+    prices: pd.DataFrame,
+    artifact: dict[str, Any],
+    *,
+    country_code: str,
+    hours: int,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    if artifact["country_code"] != country_code:
+        raise ValueError(f"Model is trained for {artifact['country_code']}, not {country_code}")
+
+    country_prices = prices.loc[
+        prices["country_code"] == country_code,
+        ["timestamp_utc", TARGET_COLUMN],
+    ]
+    predictions = forecast_prices(artifact, country_prices, hours=hours)
+    forecast = pd.DataFrame(
+        predictions,
+        columns=["timestamp_utc", "Forecast EUR/MWh"],
+    ).set_index("timestamp_utc")
+
+    history = (
+        prepare_hourly_prices(country_prices)
+        .tail(168)
+        .rename(columns={TARGET_COLUMN: "Historical EUR/MWh"})
+    )
+    bridge_timestamp = history.index[-1]
+    forecast_with_bridge = pd.concat(
+        [
+            pd.DataFrame(
+                {"Forecast EUR/MWh": [history.iloc[-1]["Historical EUR/MWh"]]},
+                index=[bridge_timestamp],
+            ),
+            forecast,
+        ]
+    )
+    chart = history.join(forecast_with_bridge, how="outer")
+    return forecast, chart
 
 
 def main() -> None:
@@ -72,6 +129,7 @@ def main() -> None:
             min_value=min_date,
             max_value=max_date,
         )
+        forecast_hours = st.slider("Forecast horizon", min_value=1, max_value=168, value=24)
 
     if isinstance(selected_range, tuple) and len(selected_range) == 2:
         start_date, end_date = selected_range
@@ -95,6 +153,32 @@ def main() -> None:
 
     chart_data = filtered.set_index("timestamp_utc")["price_eur_per_mwh"]
     st.line_chart(chart_data, height=420, y_label="EUR/MWh")
+
+    st.subheader("Price forecast")
+    model_path = os.getenv("FORECAST_MODEL_PATH", str(DEFAULT_MODEL_PATH))
+    try:
+        artifact = load_forecast_artifact(str(Path(model_path)))
+        forecast, forecast_chart = build_forecast_view(
+            df,
+            artifact,
+            country_code=selected_country,
+            hours=forecast_hours,
+        )
+    except (FileNotFoundError, OSError, KeyError, ValueError) as error:
+        st.info(str(error))
+    else:
+        metrics = artifact["metrics"]
+        forecast_metric_cols = st.columns(4)
+        forecast_metric_cols[0].metric("Forecast hours", forecast_hours)
+        forecast_metric_cols[1].metric("Model MAE (EUR/MWh)", f"{metrics['model_mae']:.2f}")
+        forecast_metric_cols[2].metric("Model RMSE (EUR/MWh)", f"{metrics['model_rmse']:.2f}")
+        forecast_metric_cols[3].metric(
+            "Baseline MAE (EUR/MWh)",
+            f"{metrics['baseline_mae']:.2f}",
+        )
+        st.line_chart(forecast_chart, height=360, y_label="EUR/MWh")
+        with st.expander("Forecast values"):
+            st.dataframe(forecast.reset_index(), width="stretch", hide_index=True)
 
     daily_prices = (
         filtered.groupby("date", as_index=False)["price_eur_per_mwh"]
