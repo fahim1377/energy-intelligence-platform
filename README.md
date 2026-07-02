@@ -151,6 +151,15 @@ and a same-hour-yesterday baseline, and saves the trained artifact under
 `models/electricity_price_forecast.joblib`. At least 48 usable training hours and 24 test hours are
 required after creating lag features; several months of continuous data are recommended.
 
+After training, request between 1 and 168 forecast hours from the API:
+
+```bash
+curl "http://127.0.0.1:8000/forecast?country_code=DE&hours=24"
+```
+
+The endpoint recursively creates hourly predictions from the latest continuous price history in
+PostgreSQL. The requested country must match the country stored in the trained model artifact.
+
 ## MVP Roadmap
 
 - [x] Set up project structure
