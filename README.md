@@ -119,7 +119,9 @@ Start the first Streamlit dashboard:
 streamlit run dashboard/app.py
 ```
 
-The dashboard reads from `raw.energy_prices` using `DATABASE_URL` from your `.env` file.
+The dashboard reads from `raw.energy_prices` using `DATABASE_URL` from your `.env` file. Once the
+forecast model has been trained, it also displays the latest historical prices, a selectable
+1-to-168-hour forecast, and the model evaluation metrics.
 
 ## API
 
