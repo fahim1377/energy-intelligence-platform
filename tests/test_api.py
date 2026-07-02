@@ -1,12 +1,12 @@
 from collections.abc import Iterator
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 
-from api.main import app, get_database_connection
+from api.main import app, get_database_connection, get_forecast_artifact
 
 
 @pytest.fixture
@@ -78,3 +78,65 @@ def test_list_prices_rejects_reversed_date_range(client: TestClient) -> None:
 
     assert response.status_code == 422
     assert response.json() == {"detail": "start must be on or before end"}
+
+
+def test_get_price_forecast(
+    client: TestClient,
+    database_connection: MagicMock,
+) -> None:
+    model = MagicMock()
+    model.predict.return_value = [55.25]
+    artifact = {
+        "model": model,
+        "feature_columns": [
+            "hour",
+            "day_of_week",
+            "month",
+            "is_weekend",
+            "lag_1h",
+            "lag_24h",
+            "lag_168h",
+            "rolling_mean_24h",
+            "rolling_std_24h",
+        ],
+        "country_code": "DE",
+        "trained_at_utc": "2026-07-02T10:00:00+00:00",
+    }
+    app.dependency_overrides[get_forecast_artifact] = lambda: artifact
+
+    cursor = database_connection.cursor.return_value.__enter__.return_value
+    timestamps = [
+        datetime(2026, 1, 8, 23, tzinfo=timezone.utc) - timedelta(hours=offset)
+        for offset in range(192)
+    ]
+    cursor.fetchall.return_value = [(timestamp, Decimal("50.00")) for timestamp in timestamps]
+
+    response = client.get("/forecast", params={"country_code": "de", "hours": 2})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "country_code": "DE",
+        "model_trained_at_utc": "2026-07-02T10:00:00Z",
+        "predictions": [
+            {
+                "timestamp_utc": "2026-01-09T00:00:00Z",
+                "predicted_price_eur_per_mwh": 55.25,
+            },
+            {
+                "timestamp_utc": "2026-01-09T01:00:00Z",
+                "predicted_price_eur_per_mwh": 55.25,
+            },
+        ],
+    }
+
+
+def test_get_price_forecast_rejects_unsupported_country(client: TestClient) -> None:
+    app.dependency_overrides[get_forecast_artifact] = lambda: {
+        "country_code": "DE",
+        "trained_at_utc": "2026-07-02T10:00:00+00:00",
+    }
+
+    response = client.get("/forecast", params={"country_code": "FR"})
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Model is trained for country_code=DE"}

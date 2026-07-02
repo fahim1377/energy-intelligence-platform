@@ -15,7 +15,7 @@ FEATURE_COLUMNS = [
 TARGET_COLUMN = "price_eur_per_mwh"
 
 
-def build_hourly_features(prices: pd.DataFrame) -> pd.DataFrame:
+def prepare_hourly_prices(prices: pd.DataFrame) -> pd.DataFrame:
     required_columns = {"timestamp_utc", TARGET_COLUMN}
     missing_columns = required_columns.difference(prices.columns)
     if missing_columns:
@@ -25,7 +25,7 @@ def build_hourly_features(prices: pd.DataFrame) -> pd.DataFrame:
     hourly = prices.loc[:, ["timestamp_utc", TARGET_COLUMN]].copy()
     hourly["timestamp_utc"] = pd.to_datetime(hourly["timestamp_utc"], utc=True)
     hourly[TARGET_COLUMN] = pd.to_numeric(hourly[TARGET_COLUMN], errors="coerce")
-    hourly = (
+    return (
         hourly.dropna()
         .drop_duplicates(subset="timestamp_utc", keep="last")
         .set_index("timestamp_utc")
@@ -33,6 +33,10 @@ def build_hourly_features(prices: pd.DataFrame) -> pd.DataFrame:
         .resample("1h")
         .mean()
     )
+
+
+def build_hourly_features(prices: pd.DataFrame) -> pd.DataFrame:
+    hourly = prepare_hourly_prices(prices)
 
     features = hourly.copy()
     features["hour"] = features.index.hour

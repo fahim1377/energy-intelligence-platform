@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 from ml.features import FEATURE_COLUMNS, build_hourly_features
+from ml.predict import forecast_prices
 from ml.train_price_forecast import save_model, train_model
 
 
@@ -47,3 +48,16 @@ def test_train_and_save_model(tmp_path: Path) -> None:
 def test_train_model_rejects_too_little_data() -> None:
     with pytest.raises(ValueError, match="Not enough data"):
         train_model(sample_prices(days=9))
+
+
+def test_forecast_prices_generates_recursive_hourly_predictions() -> None:
+    prices = sample_prices()
+    model, _ = train_model(prices)
+    artifact = {"model": model, "feature_columns": FEATURE_COLUMNS}
+
+    predictions = forecast_prices(artifact, prices, hours=24)
+
+    assert len(predictions) == 24
+    assert predictions[0][0] == prices["timestamp_utc"].iloc[-1] + pd.Timedelta(hours=1)
+    assert predictions[-1][0] == prices["timestamp_utc"].iloc[-1] + pd.Timedelta(hours=24)
+    assert all(isinstance(price, float) for _, price in predictions)
